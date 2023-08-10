@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
 
 public class MainManager : MonoBehaviour
 {
@@ -13,15 +14,23 @@ public class MainManager : MonoBehaviour
     public Text ScoreText;
     public GameObject GameOverText;
     
-    private bool m_Started = false;
-    private int m_Points;
-    
+    private bool m_Started = false;    
     private bool m_GameOver = false;
 
-    
+    public Text playerNameText;
+    public Text highScoreText;
+
+    private int currentScore = 0;
+    private int highScore;
+    private string highScorePlayerName;
+
+
+
     // Start is called before the first frame update
     void Start()
     {
+        LoadHighScore();
+
         const float step = 0.6f;
         int perLine = Mathf.FloorToInt(4.0f / step);
         
@@ -36,6 +45,13 @@ public class MainManager : MonoBehaviour
                 brick.onDestroyed.AddListener(AddPoint);
             }
         }
+
+        string playerName = PlayerPrefs.GetString("PlayerName", "Guest");
+        playerNameText.text = "Player: " + highScorePlayerName;
+
+        highScore = PlayerPrefs.GetInt("HighScore", 0);
+        highScorePlayerName = PlayerPrefs.GetString("HighScorePlayerName", "None");
+        highScoreText.text = "High Score: " + highScore;
     }
 
     private void Update()
@@ -62,15 +78,62 @@ public class MainManager : MonoBehaviour
         }
     }
 
+
     void AddPoint(int point)
     {
-        m_Points += point;
-        ScoreText.text = $"Score : {m_Points}";
+        currentScore += point;
+
+        if (currentScore > highScore)
+        {
+            highScore = currentScore;
+            highScorePlayerName = PlayerPrefs.GetString("PlayerName", "Guest");
+            highScoreText.text = "High Score: " + highScore;
+
+            PlayerPrefs.SetInt("HighScore", highScore);
+            PlayerPrefs.SetString("HighScorePlayerName", highScorePlayerName);
+        }
+
+        ScoreText.text = $"Score : {currentScore}";
+        highScoreText.text = "High Score: " + Mathf.Max(currentScore, PlayerPrefs.GetInt("HighScore", 0));
+        PlayerPrefs.SetInt("HighScore", Mathf.Max(currentScore, PlayerPrefs.GetInt("HighScore", 0)));
+
+        SaveHighScore();
     }
 
     public void GameOver()
     {
         m_GameOver = true;
         GameOverText.SetActive(true);
+    }
+
+    [System.Serializable]
+    public class HighScoreData
+    {
+        public int score;
+        public string playerName;
+    }
+    private void LoadHighScore()
+    {
+        if (File.Exists("highScore.json"))
+        {
+            string json = File.ReadAllText("highScore.json");
+            HighScoreData highScoreData = JsonUtility.FromJson<HighScoreData>(json);
+
+            highScore = highScoreData.score;
+            highScorePlayerName = highScoreData.playerName;
+            highScoreText.text = "High Score: " + highScore;
+        }
+    }
+
+    private void SaveHighScore()
+    {
+        HighScoreData highScoreData = new HighScoreData
+        {
+            score = highScore,
+            playerName = highScorePlayerName
+        };
+
+        string json = JsonUtility.ToJson(highScoreData);
+        File.WriteAllText("highScore.json", json);
     }
 }
